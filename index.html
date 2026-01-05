@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>똥의 하수도 탈출</title>
+    <style>
+        body { margin: 0; padding: 0; overflow: hidden; font-family: 'Courier New', Courier, monospace; background-color: #5d4037; touch-action: none; }
+        #game-container { position: relative; width: 100vw; height: 100vh; max-width: 600px; margin: 0 auto; background: #808080; overflow: hidden; }
+        canvas { display: block; background: #444; width: 100%; height: 100%; }
+        
+        /* 홈 화면 */
+        #home-screen { position: absolute; inset: 0; background: #5d4037; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; color: white; text-align: center; }
+        .pixel-poop { font-size: 80px; margin-bottom: 10px; }
+        .btn { padding: 15px 30px; font-size: 20px; cursor: pointer; background: #8d6e63; border: 4px solid #3e2723; color: white; margin: 10px; border-radius: 10px; }
+        
+        /* UI 요소 */
+        #ui { position: absolute; top: 10px; left: 10px; color: white; font-weight: bold; pointer-events: none; z-index: 50; font-size: 18px; text-shadow: 2px 2px 2px black; }
+        #game-over { position: absolute; inset: 0; background: rgba(0,0,0,0.8); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 200; color: white; }
+        
+        /* 성공 애니메이션 */
+        #flush-anim { position: absolute; inset: 0; background: #2196f3; display: none; z-index: 300; flex-direction: column; align-items: center; justify-content: center; font-size: 30px; color: white; }
+        .swirl { font-size: 80px; animation: rotate 1s infinite linear; display: inline-block; }
+        @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="ui">시간: <span id="timer">30</span> | 별: <span id="star-count">0</span></div>
+    
+    <div id="home-screen">
+        <div class="pixel-poop">💩</div>
+        <h1 style="font-size: 24px;">하수도 탈출 작전</h1>
+        <p>누적 별: <span id="total-stars">0</span></p>
+        <button class="btn" onclick="startGame()">탈출 시작!</button>
+    </div>
+
+    <div id="game-over">
+        <h2 id="fail-msg">하수도 탈출 실패...</h2>
+        <button class="btn" onclick="continueGame()">계속하기 (별 5개)</button>
+        <button class="btn" onclick="goHome()">홈으로</button>
+    </div>
+
+    <div id="flush-anim">
+        <div class="swirl">💩</div>
+        <p>변기 물 내리는 중...</p>
+        <p><b>바다로 탈출 성공!</b></p>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+</div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    let player = { x: 0, y: 100, size: 40 };
+    let obstacles = [];
+    let stars = [];
+    let gameActive = false;
+    let score = 0;
+    let totalStars = parseInt(localStorage.getItem('poop_stars')) || 0;
+    let timeLeft = 30;
+    let gameInterval, timerInterval;
+
+    // 초기 사이즈 설정
+    function resize() {
+        canvas.width = document.getElementById('game-container').clientWidth;
+        canvas.height = document.getElementById('game-container').clientHeight;
+        player.x = canvas.width / 2 - 20;
+    }
+    window.onload = () => {
+        resize();
+        document.getElementById('total-stars').innerText = totalStars;
+    };
+
+    let keys = {};
+    window.addEventListener('keydown', e => keys[e.code] = true);
+    window.addEventListener('keyup', e => keys[e.code] = false);
+
+    function startGame() {
