@@ -5,22 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>똥의 하수도 탈출</title>
     <style>
-        body { margin: 0; padding: 0; overflow: hidden; font-family: 'Courier New', Courier, monospace; background-color: #5d4037; touch-action: none; }
-        #game-container { position: relative; width: 100vw; height: 100vh; max-width: 600px; margin: 0 auto; background: #808080; overflow: hidden; }
+        body { margin: 0; padding: 0; overflow: hidden; font-family: 'Courier New', sans-serif; background-color: #5d4037; touch-action: none; }
+        #game-container { position: relative; width: 100vw; height: 100vh; max-width: 600px; margin: 0 auto; background: #808080; }
         canvas { display: block; background: #444; width: 100%; height: 100%; }
         
-        /* 홈 화면 */
-        #home-screen { position: absolute; inset: 0; background: #5d4037; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; color: white; text-align: center; }
+        /* 홈 화면 - 가장 위에 보이도록 설정 */
+        #home-screen { position: absolute; inset: 0; background: #5d4037; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 999; color: white; text-align: center; }
         .pixel-poop { font-size: 80px; margin-bottom: 10px; }
-        .btn { padding: 15px 30px; font-size: 20px; cursor: pointer; background: #8d6e63; border: 4px solid #3e2723; color: white; margin: 10px; border-radius: 10px; }
+        .btn { padding: 15px 40px; font-size: 24px; cursor: pointer; background: #8d6e63; border: 4px solid #3e2723; color: white; margin: 10px; border-radius: 10px; z-index: 1000; }
         
-        /* UI 요소 */
-        #ui { position: absolute; top: 10px; left: 10px; color: white; font-weight: bold; pointer-events: none; z-index: 50; font-size: 18px; text-shadow: 2px 2px 2px black; }
-        #game-over { position: absolute; inset: 0; background: rgba(0,0,0,0.8); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 200; color: white; }
-        
-        /* 성공 애니메이션 */
-        #flush-anim { position: absolute; inset: 0; background: #2196f3; display: none; z-index: 300; flex-direction: column; align-items: center; justify-content: center; font-size: 30px; color: white; }
-        .swirl { font-size: 80px; animation: rotate 1s infinite linear; display: inline-block; }
+        /* UI */
+        #ui { position: absolute; top: 10px; left: 10px; color: white; font-weight: bold; pointer-events: none; z-index: 100; font-size: 18px; text-shadow: 2px 2px black; }
+        #game-over { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 500; color: white; }
+        #flush-anim { position: absolute; inset: 0; background: #2196f3; display: none; z-index: 800; flex-direction: column; align-items: center; justify-content: center; font-size: 30px; color: white; }
+        .swirl { font-size: 80px; animation: rotate 1s infinite linear; }
         @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
     </style>
 </head>
@@ -31,20 +29,19 @@
     
     <div id="home-screen">
         <div class="pixel-poop">💩</div>
-        <h1 style="font-size: 24px;">하수도 탈출 작전</h1>
+        <h1>하수도 탈출 작전</h1>
         <p>누적 별: <span id="total-stars">0</span></p>
-        <button class="btn" onclick="startGame()">탈출 시작!</button>
+        <button class="btn" onclick="startGame()" ontouchstart="startGame()">탈출 시작!</button>
     </div>
 
     <div id="game-over">
-        <h2 id="fail-msg">하수도 탈출 실패...</h2>
-        <button class="btn" onclick="continueGame()">계속하기 (별 5개)</button>
-        <button class="btn" onclick="goHome()">홈으로</button>
+        <h2>하수도 탈출 실패...</h2>
+        <button class="btn" onclick="continueGame()" ontouchstart="continueGame()">계속 (별 5개)</button>
+        <button class="btn" onclick="location.reload()">홈으로</button>
     </div>
 
     <div id="flush-anim">
         <div class="swirl">💩</div>
-        <p>변기 물 내리는 중...</p>
         <p><b>바다로 탈출 성공!</b></p>
     </div>
 
@@ -64,19 +61,109 @@
     let timeLeft = 30;
     let gameInterval, timerInterval;
 
-    // 초기 사이즈 설정
-    function resize() {
+    function init() {
         canvas.width = document.getElementById('game-container').clientWidth;
         canvas.height = document.getElementById('game-container').clientHeight;
         player.x = canvas.width / 2 - 20;
-    }
-    window.onload = () => {
-        resize();
         document.getElementById('total-stars').innerText = totalStars;
-    };
+    }
+    window.onload = init;
 
     let keys = {};
     window.addEventListener('keydown', e => keys[e.code] = true);
     window.addEventListener('keyup', e => keys[e.code] = false);
 
+    // 시작 함수
     function startGame() {
+        // 화면 전환
+        document.getElementById('home-screen').style.setProperty('display', 'none', 'important');
+        document.getElementById('game-over').style.display = 'none';
+        
+        // 초기화
+        obstacles = [];
+        stars = [];
+        score = 0;
+        timeLeft = 30;
+        player.x = canvas.width / 2 - 20;
+        gameActive = true;
+        
+        document.getElementById('star-count').innerText = score;
+        document.getElementById('timer').innerText = timeLeft;
+
+        if(gameInterval) clearInterval(gameInterval);
+        if(timerInterval) clearInterval(timerInterval);
+
+        gameInterval = setInterval(update, 1000/60);
+        timerInterval = setInterval(() => {
+            timeLeft--;
+            document.getElementById('timer').innerText = timeLeft;
+            if(timeLeft <= 0) winGame();
+        }, 1000);
+    }
+
+    function update() {
+        if(!gameActive) return;
+
+        if(keys['ArrowLeft'] && player.x > 0) player.x -= 7;
+        if(keys['ArrowRight'] && player.x < canvas.width - player.size) player.x += 7;
+
+        if(Math.random() < 0.04) obstacles.push({ x: Math.random()*(canvas.width-30), y: canvas.height, size: 30 });
+        if(Math.random() < 0.015) stars.push({ x: Math.random()*(canvas.width-30), y: canvas.height, size: 25 });
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // 배경(하수도 라인)
+        ctx.strokeStyle = "#555";
+        ctx.beginPath();
+        ctx.moveTo(canvas.width/3, 0); ctx.lineTo(canvas.width/3, canvas.height);
+        ctx.moveTo(canvas.width*2/3, 0); ctx.lineTo(canvas.width*2/3, canvas.height);
+        ctx.stroke();
+
+        // 주인공
+        ctx.font = "40px Arial";
+        ctx.fillText("💩", player.x, player.y + 35);
+
+        // 장애물
+        obstacles.forEach((ob, i) => {
+            ob.y -= 5;
+            ctx.fillStyle = "red";
+            ctx.beginPath();
+            ctx.moveTo(ob.x, ob.y + ob.size);
+            ctx.lineTo(ob.x + ob.size/2, ob.y);
+            ctx.lineTo(ob.x + ob.size, ob.y + ob.size);
+            ctx.fill();
+            if(player.x < ob.x + 25 && player.x + 35 > ob.x && player.y < ob.y + 25 && player.y + 35 > ob.y) gameOver();
+            if(ob.y < -50) obstacles.splice(i, 1);
+        });
+
+        // 별
+        stars.forEach((s, i) => {
+            s.y -= 5;
+            ctx.font = "25px Arial";
+            ctx.fillText("⭐", s.x, s.y + 25);
+            if(player.x < s.x + 25 && player.x + 35 > s.x && player.y < s.y + 25 && player.y + 35 > s.y) {
+                score++;
+                totalStars++;
+                document.getElementById('star-count').innerText = score;
+                localStorage.setItem('poop_stars', totalStars);
+                stars.splice(i, 1);
+            }
+            if(s.y < -50) stars.splice(i, 1);
+        });
+    }
+
+    function gameOver() {
+        gameActive = false;
+        clearInterval(gameInterval);
+        clearInterval(timerInterval);
+        document.getElementById('game-over').style.display = 'flex';
+    }
+
+    function continueGame() {
+        if(totalStars >= 5) {
+            totalStars -= 5;
+            localStorage.setItem('poop_stars', totalStars);
+            document.getElementById('total-stars').innerText = totalStars;
+            document.getElementById('game-over').style.display = 'none';
+            gameActive = true;
+            gameInterval = setInterval(update, 1000/60
